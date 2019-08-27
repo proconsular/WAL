@@ -11,6 +11,7 @@ func main() {
 	sm = makeManager(5)
 
 	sm.init()
+	go sm.run()
 
 	http.HandleFunc("/", handleIndex)
 	http.ListenAndServe(":4000", nil)

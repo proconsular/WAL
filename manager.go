@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -90,9 +91,48 @@ func (sm *SegmentManager) createNewSegment() {
 
 func (sm *SegmentManager) run() {
 	for {
-
-		time.Sleep(5000 * time.Millisecond)
+		if len(sm.segments) > 2 {
+			sm.compact()
+		}
+		fmt.Println("Compaction Check.")
+		time.Sleep(60 * time.Second)
 	}
+}
+
+func (sm *SegmentManager) compact() {
+	table := make(map[string]string)
+	for index := range sm.segments[:sm.active] {
+		file, err := os.Open("data/" + sm.getSegmentName(index))
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		for record := readOneRecord(file); record != ""; record = readOneRecord(file) {
+			key, value := parseRecord(record)
+			table[key] = value
+		}
+	}
+	file, err := os.Create("data/compact.log")
+	if err != nil {
+		panic(err)
+	}
+	for key, value := range table {
+		file.Write([]byte(key + ":" + value + "\n"))
+	}
+	file.Sync()
+	file.Close()
+	for index := range sm.segments[:sm.active] {
+		os.Remove("data/" + sm.getSegmentName(index))
+	}
+	os.Rename("data/compact.log", "data/"+sm.getSegmentName(0))
+	for i := sm.active - 1; i >= 1; i-- {
+		sm.segments = append(sm.segments[:i], sm.segments[i+1:]...)
+	}
+	sort.Sort(ByID(sm.segments))
+	first := sm.segments[0]
+	first.length = len(table)
+	sm.segments[0] = first
+	sm.active = len(sm.segments) - 1
 }
 
 func (sm *SegmentManager) getCurrentSegmentName() string {

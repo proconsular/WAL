@@ -8,7 +8,7 @@ import (
 var sm *SegmentManager
 
 func main() {
-	sm = makeManager(5)
+	sm = makeManager(100)
 
 	sm.init()
 	go sm.run()
